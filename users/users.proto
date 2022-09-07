@@ -1,6 +1,5 @@
 syntax = "proto3";
 package user;
-import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/tech-with-moss/go-user-grpc;go_user_grpc";
 
@@ -12,16 +11,16 @@ message NewUser {
   string userName = 1;
   string email = 2;
   string mobileNo = 3;
-  google.protobuf.Timestamp birthDate = 4;
+  string birthDate = 4;
   string password = 5;
 }
 
 message User {
-  string ID = 1;
+  int32 ID = 1;
   string userName = 2;
   string email = 3;
   string mobileNo = 4;
-  google.protobuf.Timestamp birthDate = 5;
+  string birthDate = 5;
   string password = 6;
 }
 
