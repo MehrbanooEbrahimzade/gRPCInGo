@@ -1,4 +1,4 @@
-module github.com/MehrbanooEbrahimzade/GRPC
+module github.com/MehrbanooEbrahimzade/gRPCInGo
 
 go 1.18
 
