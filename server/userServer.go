@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"net"
 
-	pb "github.com/MehrbanooEbrahimzade/gRPCInGo/users"
+	pb "github.com/MehrbanooEbrahimzade/gRPCInGo/users/users"
 	"google.golang.org/grpc"
 )
 
