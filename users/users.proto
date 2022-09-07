@@ -4,10 +4,6 @@ package user;
 
 option go_package = "github.com/MehrbanooEbrahimzade/gRPCInGo;gRPCInGo";
 
-service UserManagement {
-  rpc CreateNewUser (User) returns (User) {}
-}
-
 message User {
   int32 ID = 1;
   string userName = 2;
@@ -26,7 +22,7 @@ message CreateUserRes {
 }
 
 message ReadUserReq {
-  string id = 1;
+  int32 id = 1;
 }
 
 message ReadUserRes {
@@ -42,7 +38,7 @@ message UpdateUserRes {
 }
 
 message DeleteUserReq {
-  string id = 1;
+  int32 id = 1;
 }
 
 message DeleteUserRes {

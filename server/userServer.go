@@ -3,9 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"go.mongodb.org/mongo-driver/bson"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"log"
-	"math/rand"
 	"net"
+	"os"
+	"os/signal"
 	"time"
 
 	pb "github.com/MehrbanooEbrahimzade/gRPCInGo/users"
@@ -18,14 +22,14 @@ const (
 	port = ":50051"
 )
 
-type UserManagementServer struct {
-	pb.UnimplementedUserManagementServer
-}
-
 var (
 	client *mongo.Client
-	blogdb *mongo.Collection
+	Userdb *mongo.Collection
 )
+
+type UserServiceServer struct {
+	pb.UnimplementedUserServiceServer
+}
 
 func main() {
 
@@ -34,18 +38,36 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
-	pb.RegisterUserManagementServer(s, &UserManagementServer{})
+	pb.RegisterUserServiceServer(s, &UserServiceServer{})
 	log.Printf("server listening at %v", lis.Addr())
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
+	ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
 
-	// mongo
-	client, err = mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	configMongodb(ctx)
+	defer lis.Close()
+
+	go func() {
+		if err := s.Serve(lis); err != nil {
+			log.Fatalf("Failed to serve: %v", err)
+		}
+	}()
+	fmt.Println("Server succesfully started on port :50051")
+
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt)
+	<-c
+	fmt.Println("\nStopping the server...")
+	s.Stop()
+	lis.Close()
+	fmt.Println("Closing MongoDB connection")
+	client.Disconnect(ctx)
+	fmt.Println("Done.")
+
+}
+func configMongodb(ctx context.Context) {
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	err = client.Connect(ctx)
 	if err != nil {
 		log.Fatal(err)
@@ -58,14 +80,49 @@ func main() {
 	} else {
 		fmt.Println("Connected to Mongodb")
 	}
-	blogdb = client.Database("mydb").Collection("blog")
 
+	Userdb = client.Database("mydb").Collection("user")
+
+	mod := mongo.IndexModel{Keys: bson.M{"mobileNo": 1}, Options: options.Index().SetUnique(true)}
+	ind, err := Userdb.Indexes().CreateOne(ctx, mod)
+
+	if err != nil {
+		fmt.Println("Indexes().CreateOne() ERROR:", err)
+		os.Exit(1)
+	} else {
+		// API call returns string of the index name
+		fmt.Println("index " + ind + " added")
+	}
 }
 
-func (s *UserManagementServer) CreateNewUser(ctx context.Context, in *pb.NewUser) (*pb.User, error) {
-	log.Printf("Received: %v", in.GetUserName())
+type UserItem struct {
+	ID        int32  `bson:"_id,omitempty"`
+	UserName  string `bson:"userName"`
+	Email     string `bson:"email"`
+	MobileNo  string `bson:"mobileNo"`
+	BirthDate string `bson:"birthDate"`
+	Password  string `bson:"password"`
+}
 
-	return &pb.User{ID: int32(rand.Intn(100)), UserName: in.GetUserName(), Email: in.GetEmail(), MobileNo: in.GetMobileNo(),
-		BirthDate: in.GetBirthDate(), Password: in.GetPassword(),
-	}, nil
+func (s *UserServiceServer) CreateUser(ctx context.Context, req *pb.CreateUserReq) (*pb.CreateUserRes, error) {
+	user := req.GetUser()
+	// convert into BSON
+	data := UserItem{
+		UserName:  user.UserName,
+		Email:     user.Email,
+		MobileNo:  user.MobileNo,
+		BirthDate: user.BirthDate,
+		Password:  user.Password,
+	}
+	result, err := Userdb.InsertOne(ctx, data)
+	if err != nil {
+		// return internal gRPC error to be handled later
+		return nil, status.Errorf(
+			codes.Internal,
+			fmt.Sprintf("Internal error: %v", err),
+		)
+	}
+	oid := result.InsertedID.(int32)
+	user.ID = oid
+	return &pb.CreateUserRes{User: user}, nil
 }
