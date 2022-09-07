@@ -1,18 +1,11 @@
+//protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative users/users.proto
 syntax = "proto3";
 package user;
 
 option go_package = "github.com/MehrbanooEbrahimzade/gRPCInGo;gRPCInGo";
 
 service UserManagement {
-  rpc CreateNewUser (NewUser) returns (User) {}
-}
-
-message NewUser {
-  string userName = 1;
-  string email = 2;
-  string mobileNo = 3;
-  string birthDate = 4;
-  string password = 5;
+  rpc CreateNewUser (User) returns (User) {}
 }
 
 message User {
@@ -22,6 +15,52 @@ message User {
   string mobileNo = 4;
   string birthDate = 5;
   string password = 6;
+}
+
+message CreateUserReq {
+  User user = 1; // User id blank
+}
+
+message CreateUserRes {
+  User user = 1; // User id filled in
+}
+
+message ReadUserReq {
+  string id = 1;
+}
+
+message ReadUserRes {
+  User user = 1;
+}
+
+message UpdateUserReq {
+  User user = 1;
+}
+
+message UpdateUserRes {
+  User user = 1;
+}
+
+message DeleteUserReq {
+  string id = 1;
+}
+
+message DeleteUserRes {
+  bool success = 1;
+}
+
+message ListUsersReq {}
+
+message ListUsersRes {
+  User user = 1;
+}
+
+service UserService {
+  rpc CreateUser(CreateUserReq) returns (CreateUserRes);
+  rpc ReadUser(ReadUserReq) returns (ReadUserRes);
+  rpc UpdateUser(UpdateUserReq) returns (UpdateUserRes);
+  rpc DeleteUser(DeleteUserReq) returns (DeleteUserRes);
+  rpc ListUsers(ListUsersReq) returns (stream ListUsersRes);
 }
 
 
