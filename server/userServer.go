@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	port = ":50051"
+	port = "localhost:50051"
 )
 
 var (
@@ -37,22 +37,17 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	s := grpc.NewServer()
+	var opts []grpc.ServerOption
+	s := grpc.NewServer(opts...)
 	pb.RegisterUserServiceServer(s, &UserServiceServer{})
 	log.Printf("server listening at %v", lis.Addr())
-	ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 
 	configMongodb(ctx)
-	defer lis.Close()
 
-	go func() {
-		if err := s.Serve(lis); err != nil {
-			log.Fatalf("Failed to serve: %v", err)
-		}
-	}()
-	fmt.Println("Server succesfully started on port :50051")
-
+	fmt.Printf("Server succesfully started on port :%v", port)
 	c := make(chan os.Signal)
+
 	signal.Notify(c, os.Interrupt)
 	<-c
 	fmt.Println("\nStopping the server...")
@@ -61,8 +56,8 @@ func main() {
 	fmt.Println("Closing MongoDB connection")
 	client.Disconnect(ctx)
 	fmt.Println("Done.")
-
 }
+
 func configMongodb(ctx context.Context) {
 	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
 	if err != nil {
@@ -72,8 +67,6 @@ func configMongodb(ctx context.Context) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer client.Disconnect(ctx)
-
 	err = client.Ping(ctx, nil)
 	if err != nil {
 		log.Fatalf("Could not connect to MongoDB: %v\n", err)
@@ -84,15 +77,7 @@ func configMongodb(ctx context.Context) {
 	Userdb = client.Database("mydb").Collection("user")
 
 	mod := mongo.IndexModel{Keys: bson.M{"mobileNo": 1}, Options: options.Index().SetUnique(true)}
-	ind, err := Userdb.Indexes().CreateOne(ctx, mod)
-
-	if err != nil {
-		fmt.Println("Indexes().CreateOne() ERROR:", err)
-		os.Exit(1)
-	} else {
-		// API call returns string of the index name
-		fmt.Println("index " + ind + " added")
-	}
+	Userdb.Indexes().CreateOne(ctx, mod)
 }
 
 type UserItem struct {
@@ -105,6 +90,7 @@ type UserItem struct {
 }
 
 func (s *UserServiceServer) CreateUser(ctx context.Context, req *pb.CreateUserReq) (*pb.CreateUserRes, error) {
+	fmt.Println("into create")
 	user := req.GetUser()
 	// convert into BSON
 	data := UserItem{
@@ -114,6 +100,8 @@ func (s *UserServiceServer) CreateUser(ctx context.Context, req *pb.CreateUserRe
 		BirthDate: user.BirthDate,
 		Password:  user.Password,
 	}
+	fmt.Println("into create")
+
 	result, err := Userdb.InsertOne(ctx, data)
 	if err != nil {
 		// return internal gRPC error to be handled later
@@ -123,6 +111,7 @@ func (s *UserServiceServer) CreateUser(ctx context.Context, req *pb.CreateUserRe
 		)
 	}
 	oid := result.InsertedID.(int32)
+	fmt.Println("into create")
 	user.ID = oid
 	return &pb.CreateUserRes{User: user}, nil
 }
