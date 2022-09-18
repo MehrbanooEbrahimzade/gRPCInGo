@@ -25,7 +25,6 @@ type newUser struct {
 
 func main() {
 	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
-	fmt.Println("hi")
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
@@ -53,7 +52,6 @@ func main() {
 
 	for _, u := range newUsers {
 		r, err := c.CreateUser(ctx, &pb.CreateUserReq{User: &u})
-		fmt.Println("in client")
 		if err != nil {
 			log.Fatalf("could not create user: %v", err)
 		}
